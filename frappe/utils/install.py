@@ -65,6 +65,24 @@ def after_install():
 	frappe.db.commit()
 
 
+def get_site_default_email_domain() -> str:
+	"""Return the domain to use for default system placeholder addresses.
+
+	Administrator and Guest have historically shipped with a hardcoded,
+	non-existent admin@example.com / guest@example.com address. Since
+	example.com never resolves, no email to either account is ever
+	deliverable -- which becomes a hard lockout the moment something
+	(e.g. 2FA verification) requires mailing Administrator.
+
+	Using the current site name instead gives each site a distinct,
+	often-actually-routable domain, and at minimum makes the address
+	catch-all-able by whoever administers that domain's mail. Falls back
+	to the old example.com placeholder only when no site context is
+	available (e.g. some non-site code paths).
+	"""
+	return getattr(frappe.local, "site", None) or "example.com"
+
+
 def create_user_type():
 	for user_type in ["System User", "Website User"]:
 		if not frappe.db.exists("User Type", user_type):
@@ -80,7 +98,7 @@ def install_basic_docs():
 			"doctype": "User",
 			"name": "Administrator",
 			"first_name": "Administrator",
-			"email": "admin@example.com",
+			"email": f"admin@{get_site_default_email_domain()}",
 			"enabled": 1,
 			"is_admin": 1,
 			"roles": [{"role": "Administrator"}],
@@ -91,7 +109,7 @@ def install_basic_docs():
 			"doctype": "User",
 			"name": "Guest",
 			"first_name": "Guest",
-			"email": "guest@example.com",
+			"email": f"guest@{get_site_default_email_domain()}",
 			"enabled": 1,
 			"is_guest": 1,
 			"roles": [{"role": "Guest"}],

@@ -137,10 +137,22 @@ def get_info_based_on_role(role, field="email", ignore_permissions=False):
 
 def get_user_info(users, field="email"):
 	"""Fetch details about users for the specified field"""
+	# Skip Administrator/Guest by comparing against their *live* email, not a
+	# hardcoded "admin@example.com" / "guest@example.com" literal -- those
+	# addresses are no longer guaranteed once a site customises them (see
+	# frappe.patches.v16_0.fix_admin_guest_placeholder_email).
+	excluded_emails = {
+		email
+		for email in frappe.get_all(
+			"User", filters={"name": ("in", ["Administrator", "Guest"])}, pluck="email"
+		)
+		if email
+	}
+
 	info_list = []
 	for user in users:
 		user_info, enabled = frappe.db.get_value("User", user.get("user_name"), [field, "enabled"])
-		if enabled and user_info not in ["admin@example.com", "guest@example.com"]:
+		if enabled and user_info not in excluded_emails:
 			info_list.append(user_info)
 	return info_list
 
